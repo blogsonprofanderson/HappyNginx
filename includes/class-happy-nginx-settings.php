@@ -1,0 +1,116 @@
+<?php
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+class Happy_Nginx_Settings {
+    private static $instance = null;
+    const OPTION_KEY = 'happy_nginx_options';
+
+    private $options = [];
+
+    public static function get_instance() {
+        if (null === self::$instance) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    private function __construct() {
+        $this->load();
+    }
+
+    public static function get_default_options() {
+        return [
+            // Cache Nginx
+            'cache_path'               => '/var/run/nginx-cache', // Caminho padrão do HestiaCP FastCGI cache
+            'smart_purge_enabled'      => 1,
+            'purge_on_comment'         => 1,
+            'purge_method'             => 'direct', // 'direct' ou 'http'
+            'http_purge_url'           => 'http://127.0.0.1',
+            'timestamp_enabled'        => 1,
+            'cache_logged_in_bypass'   => 1,
+            'cache_woocommerce_bypass' => 1,
+
+            // Preload
+            'preload_enabled'          => 1,
+            'preload_interval'         => 'daily', // 'hourly', 'twicedaily', 'daily'
+            'preload_limit'            => 100,
+            'custom_sitemap_url'       => '',
+
+            // Minify
+            'minify_html_enabled'      => 1,
+            'minify_css_enabled'       => 1,
+            'minify_js_enabled'        => 1,
+            'remove_query_strings'     => 1,
+
+            // Delay JS
+            'delay_js_enabled'         => 1,
+            'delay_js_timeout'         => 5, // fallback em segundos caso o usuário não interaja
+            'delay_js_exclusions'      => "jquery\njquery-core\nwp-includes/js/jquery",
+
+            // Google Fonts
+            'fonts_local_enabled'      => 1,
+            'fonts_preload'            => 1,
+
+            // Lazy Load
+            'lazyload_enabled'         => 1,
+            'lazyload_iframes'         => 1,
+            'lazyload_video_preview'   => 1,
+        ];
+    }
+
+    public static function set_defaults() {
+        $existing = get_option(self::OPTION_KEY, []);
+        $defaults = self::get_default_options();
+        $merged   = wp_parse_args($existing, $defaults);
+        update_option(self::OPTION_KEY, $merged);
+    }
+
+    public function load() {
+        $saved = get_option(self::OPTION_KEY, []);
+        $this->options = wp_parse_args($saved, self::get_default_options());
+    }
+
+    public function get($key, $default = null) {
+        if (isset($this->options[$key])) {
+            return $this->options[$key];
+        }
+        return $default;
+    }
+
+    public function set($key, $value) {
+        $this->options[$key] = $value;
+    }
+
+    public function save() {
+        return update_option(self::OPTION_KEY, $this->options);
+    }
+
+    public function update_all(array $new_options) {
+        $defaults = self::get_default_options();
+        $sanitized = [];
+        foreach ($defaults as $key => $default_val) {
+            if (isset($new_options[$key])) {
+                if (is_int($default_val) || is_bool($default_val)) {
+                    $sanitized[$key] = !empty($new_options[$key]) ? 1 : 0;
+                } else {
+                    $sanitized[$key] = sanitize_text_field($new_options[$key]);
+                }
+            } else {
+                // Se for checkbox e não veio no POST, fica 0
+                if (is_int($default_val) && ($default_val === 0 || $default_val === 1)) {
+                    $sanitized[$key] = 0;
+                } else {
+                    $sanitized[$key] = $default_val;
+                }
+            }
+        }
+        $this->options = $sanitized;
+        return $this->save();
+    }
+
+    public function all() {
+        return $this->options;
+    }
+}
