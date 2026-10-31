@@ -66,7 +66,7 @@ class Happy_Nginx_Settings {
             // Preload
             'preload_enabled'          => 1,
             'preload_interval'         => 'daily', // 'hourly', 'twicedaily', 'daily'
-            'preload_limit'            => 100,
+            'preload_limit'            => 100, // padrão 100 URLs
             'custom_sitemap_url'       => '',
 
             // Minify
@@ -77,7 +77,7 @@ class Happy_Nginx_Settings {
 
             // Delay JS
             'delay_js_enabled'         => 1,
-            'delay_js_timeout'         => 5, // fallback em segundos caso o usuário não interaja
+            'delay_js_timeout'         => 3, // fallback pré-definido em 3 segundos
             'delay_js_exclusions'      => "jquery\njquery-core\nwp-includes/js/jquery",
 
             // Google Fonts
@@ -121,22 +121,29 @@ class Happy_Nginx_Settings {
     public function update_all(array $new_options) {
         $defaults = self::get_default_options();
         $sanitized = [];
+
+        // Lista de campos que são estritamente inteiros (não checkboxes)
+        $integer_fields = ['preload_limit', 'delay_js_timeout'];
+
+        // Lista de campos com texto longo/multilinhas
+        $textarea_fields = ['delay_js_exclusions'];
+
         foreach ($defaults as $key => $default_val) {
-            if (isset($new_options[$key])) {
-                if (is_int($default_val) || is_bool($default_val)) {
-                    $sanitized[$key] = !empty($new_options[$key]) ? 1 : 0;
-                } else {
-                    $sanitized[$key] = sanitize_text_field($new_options[$key]);
-                }
+            if (in_array($key, $integer_fields, true)) {
+                // Campo numérico inteiro
+                $sanitized[$key] = isset($new_options[$key]) ? max(1, (int) $new_options[$key]) : (int) $default_val;
+            } elseif (in_array($key, $textarea_fields, true)) {
+                // Campo de textarea
+                $sanitized[$key] = isset($new_options[$key]) ? sanitize_textarea_field($new_options[$key]) : $default_val;
+            } elseif (is_bool($default_val) || ($default_val === 0 || $default_val === 1)) {
+                // Checkbox booleano
+                $sanitized[$key] = !empty($new_options[$key]) ? 1 : 0;
             } else {
-                // Se for checkbox e não veio no POST, fica 0
-                if (is_int($default_val) && ($default_val === 0 || $default_val === 1)) {
-                    $sanitized[$key] = 0;
-                } else {
-                    $sanitized[$key] = $default_val;
-                }
+                // Campo de texto geral
+                $sanitized[$key] = isset($new_options[$key]) ? sanitize_text_field($new_options[$key]) : $default_val;
             }
         }
+
         $this->options = $sanitized;
         return $this->save();
     }

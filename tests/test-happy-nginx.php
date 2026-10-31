@@ -32,6 +32,10 @@ function sanitize_text_field($str) {
     return trim(strip_tags($str));
 }
 
+function sanitize_textarea_field($str) {
+    return trim(strip_tags($str));
+}
+
 function current_time($type) {
     return date('Y-m-d H:i:s');
 }
@@ -112,6 +116,17 @@ $settings = Happy_Nginx_Settings::get_instance();
 assert_test(strpos($settings->get('cache_path'), '/var/cache/nginx') !== false || strpos($settings->get('cache_path'), '/var/run/nginx-cache') !== false, 'Caminho padrão de cache correto para HestiaCP');
 assert_test($settings->get('smart_purge_enabled') === 1, 'Smart Purge ativado por padrão');
 assert_test($settings->get('timestamp_enabled') === 1, 'Timestamp ativado por padrão');
+assert_test($settings->get('preload_limit') === 100, 'preload_limit padrão em 100');
+assert_test($settings->get('delay_js_timeout') === 3, 'delay_js_timeout padrão em 3 segundos');
+
+// Testar persistência via update_all (garantir que não virem 1)
+$settings->update_all(Happy_Nginx_Settings::get_default_options());
+$settings->update_all(array_merge(Happy_Nginx_Settings::get_default_options(), [
+    'preload_limit'    => '150',
+    'delay_js_timeout' => '4',
+]));
+assert_test($settings->get('preload_limit') === 150, 'preload_limit salvo com sucesso como 150 (não 1)');
+assert_test($settings->get('delay_js_timeout') === 4, 'delay_js_timeout salvo com sucesso como 4 (não 1)');
 
 // 2. Teste de Timestamp no Cache Nginx
 echo "\n--- 2. Testando Happy_Nginx_Cache Timestamp & Purge ---\n";
