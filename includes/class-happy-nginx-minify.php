@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Happy_Nginx_Minify')) :
 class Happy_Nginx_Minify {
     private $settings;
 
@@ -156,3 +157,5 @@ class Happy_Nginx_Minify {
         return $minified;
     }
 }
+
+endif;

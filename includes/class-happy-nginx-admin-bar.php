@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Happy_Nginx_Admin_Bar')) :
 class Happy_Nginx_Admin_Bar {
     private $settings;
     private $cache;
@@ -136,3 +137,5 @@ class Happy_Nginx_Admin_Bar {
         ]);
     }
 }
+
+endif;

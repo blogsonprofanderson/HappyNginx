@@ -18,10 +18,18 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('HAPPY_NGINX_VERSION', '1.0.0');
-define('HAPPY_NGINX_FILE', __FILE__);
-define('HAPPY_NGINX_PATH', plugin_dir_path(__FILE__));
-define('HAPPY_NGINX_URL', plugin_dir_url(__FILE__));
+if (!defined('HAPPY_NGINX_VERSION')) {
+    define('HAPPY_NGINX_VERSION', '1.0.0');
+}
+if (!defined('HAPPY_NGINX_FILE')) {
+    define('HAPPY_NGINX_FILE', __FILE__);
+}
+if (!defined('HAPPY_NGINX_PATH')) {
+    define('HAPPY_NGINX_PATH', plugin_dir_path(__FILE__));
+}
+if (!defined('HAPPY_NGINX_URL')) {
+    define('HAPPY_NGINX_URL', plugin_dir_url(__FILE__));
+}
 
 // Início da contagem de tempo para o timestamp
 if (!defined('HAPPY_NGINX_START_TIME')) {
@@ -42,6 +50,7 @@ require_once HAPPY_NGINX_PATH . 'admin/class-happy-nginx-admin.php';
 /**
  * Classe principal do HappyNginx
  */
+if (!class_exists('HappyNginx')) :
 class HappyNginx {
     private static $instance = null;
     public $settings;
@@ -158,6 +167,7 @@ class HappyNginx {
         return $html;
     }
 }
+endif;
 
 // Inicializar plugin
 add_action('plugins_loaded', function() {

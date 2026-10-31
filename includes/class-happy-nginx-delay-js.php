@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Happy_Nginx_Delay_JS')) :
 class Happy_Nginx_Delay_JS {
     private $settings;
 
@@ -147,3 +148,5 @@ class Happy_Nginx_Delay_JS {
 HTML;
     }
 }
+
+endif;

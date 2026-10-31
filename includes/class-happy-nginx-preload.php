@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Happy_Nginx_Preload')) :
 class Happy_Nginx_Preload {
     private $settings;
     private $cache;
@@ -312,3 +313,5 @@ class Happy_Nginx_Preload {
         ]);
     }
 }
+
+endif;

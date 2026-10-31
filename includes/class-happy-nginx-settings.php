@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Happy_Nginx_Settings')) :
 class Happy_Nginx_Settings {
     private static $instance = null;
     const OPTION_KEY = 'happy_nginx_options';
@@ -144,3 +145,5 @@ class Happy_Nginx_Settings {
         return $this->options;
     }
 }
+
+endif;

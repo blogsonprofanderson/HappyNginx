@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Happy_Nginx_LazyLoad')) :
 class Happy_Nginx_LazyLoad {
     private $settings;
 
@@ -167,3 +168,5 @@ document.addEventListener('DOMContentLoaded', function() {
 HTML;
     }
 }
+
+endif;

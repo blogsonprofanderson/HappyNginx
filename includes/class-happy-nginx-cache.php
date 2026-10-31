@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Happy_Nginx_Cache')) :
 class Happy_Nginx_Cache {
     private $settings;
 
@@ -349,3 +350,5 @@ class Happy_Nginx_Cache {
         return array_unique(array_filter($urls));
     }
 }
+
+endif;

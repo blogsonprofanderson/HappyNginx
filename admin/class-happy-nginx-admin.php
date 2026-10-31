@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Happy_Nginx_Admin')) :
 class Happy_Nginx_Admin {
     private $settings;
     private $cache;
@@ -354,3 +355,5 @@ class Happy_Nginx_Admin {
         <?php
     }
 }
+
+endif;

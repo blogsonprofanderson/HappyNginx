@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Happy_Nginx_Google_Fonts')) :
 class Happy_Nginx_Google_Fonts {
     private $settings;
     private $fonts_dir;
@@ -133,3 +134,5 @@ class Happy_Nginx_Google_Fonts {
         return false;
     }
 }
+
+endif;
