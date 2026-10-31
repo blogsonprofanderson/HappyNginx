@@ -71,8 +71,9 @@ class Happy_Nginx_Admin {
         $options = $this->settings->all();
         $sitemap_info = $this->preload->get_sitemap_info();
         $preload_stats = get_option('happy_nginx_preload_stats', []);
-        $cache_path = $options['cache_path'];
-        $cache_writable = is_dir($cache_path) && is_writable($cache_path);
+        $cache_path = !empty($options['cache_path']) ? $options['cache_path'] : Happy_Nginx_Settings::detect_hestia_cache_path();
+        $dir_exists = is_dir($cache_path);
+        $is_writable = $dir_exists && is_writable($cache_path);
 
         ?>
         <div class="wrap happy-nginx-wrap">
@@ -91,13 +92,24 @@ class Happy_Nginx_Admin {
                     🔥 Pré-carregar Cache (Preload)
                 </button>
                 <span class="happy-nginx-status">
-                    <?php if (is_dir($cache_path)): ?>
-                        <span class="status-ok">✔ Pasta Nginx Detectada</span>
+                    <?php if ($dir_exists && $is_writable): ?>
+                        <span class="status-ok">✔ Cache do Nginx Pronto (Gravável)</span>
+                    <?php elseif ($dir_exists): ?>
+                        <span class="status-warning">⚠️ Pasta existe (leitura), mas requer permissão de escrita para o usuário PHP</span>
                     <?php else: ?>
-                        <span class="status-warning">⚠️ Pasta Nginx não encontrada ou sem permissão direta</span>
+                        <span class="status-warning">⚠️ Pasta Nginx não encontrada em <code><?php echo esc_html($cache_path); ?></code></span>
                     <?php endif; ?>
                 </span>
             </div>
+
+            <?php if (!$is_writable): ?>
+                <div class="notice notice-info inline" style="margin: 15px 0; padding: 12px; background: #fdfefe; border-left: 4px solid #72aee6;">
+                    <p><strong>Configuração de Permissão no HestiaCP:</strong></p>
+                    <p>O HestiaCP cria por padrão a pasta em <code>/var/cache/nginx/micro/<?php echo esc_html(wp_parse_url(home_url(), PHP_URL_HOST)); ?></code> de propriedade do <code>www-data</code>. Se o seu pool PHP-FPM roda sob o usuário do site (ex: <code>admin</code>), execute no SSH do servidor:</p>
+                    <code>chmod -R 775 <?php echo esc_html($cache_path); ?> && chown -R www-data:www-data <?php echo esc_html($cache_path); ?></code>
+                    <p style="margin-top:6px; font-size:12px; color:#50575e;"><em>Dica: Mesmo sem permissão de escrita direta, o HappyNginx possui fallback automático e continuará funcionando perfeitamente via HTTP.</em></p>
+                </div>
+            <?php endif; ?>
 
             <?php if (!$sitemap_info['exists']): ?>
                 <div class="notice notice-warning inline" style="margin: 15px 0; padding: 12px;">

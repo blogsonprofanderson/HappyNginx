@@ -92,8 +92,16 @@ class Happy_Nginx_Cache {
         $success = false;
 
         if ($method === 'direct') {
-            $cache_path = $this->settings->get('cache_path', '/var/run/nginx-cache');
+            $cache_path = $this->settings->get('cache_path');
+            if (empty($cache_path)) {
+                $cache_path = Happy_Nginx_Settings::detect_hestia_cache_path();
+            }
             $success = $this->delete_cache_dir_contents($cache_path);
+
+            // Se a exclusão direta falhou por permissões e o diretório não é gravável, tenta também via HTTP PURGE
+            if (!$success) {
+                $this->http_purge_request(home_url('/*'));
+            }
         } else {
             $purge_url = home_url('/*');
             $success = $this->http_purge_request($purge_url);

@@ -80,48 +80,59 @@ class Happy_Nginx_Preload {
         $urls = [];
         $sitemap_info = $this->get_sitemap_info();
 
-        if ($sitemap_info['exists'] && !empty($sitemap_info['url'])) {
+        if (!empty($sitemap_info['url'])) {
             $urls = $this->parse_sitemap($sitemap_info['url'], $limit);
         }
 
-        // Fallback para posts e páginas do WordPress caso o sitemap não retorne nada
-        if (empty($urls)) {
-            $urls[] = home_url('/');
+        // Sempre incluir a Homepage
+        $urls[] = home_url('/');
 
-            // Posts e Páginas recentes
+        // Se o sitemap retornou poucas URLs ou falhou, complementa com posts e páginas reais
+        if (count($urls) < $limit) {
+            $remaining = $limit - count($urls);
             $posts = get_posts([
-                'numberposts' => $limit,
+                'numberposts' => $remaining,
                 'post_status' => 'publish',
-                'post_type'   => ['post', 'page'],
+                'post_type'   => 'any',
             ]);
 
-            foreach ($posts as $p) {
-                $urls[] = get_permalink($p->ID);
+            if (!empty($posts)) {
+                foreach ($posts as $p) {
+                    $link = get_permalink($p->ID);
+                    if ($link) {
+                        $urls[] = $link;
+                    }
+                }
             }
 
-            // Categorias
-            $categories = get_categories(['number' => 20]);
-            foreach ($categories as $cat) {
-                $urls[] = get_term_link($cat);
+            $categories = get_categories(['number' => 50, 'hide_empty' => false]);
+            if (!empty($categories) && !is_wp_error($categories)) {
+                foreach ($categories as $cat) {
+                    $cat_link = get_term_link($cat);
+                    if (!is_wp_error($cat_link)) {
+                        $urls[] = $cat_link;
+                    }
+                }
             }
         }
 
-        return array_unique(array_filter($urls));
+        $clean_urls = array_values(array_unique(array_filter($urls)));
+        return array_slice($clean_urls, 0, $limit);
     }
 
     /**
-     * Faz o parse do XML de Sitemap
+     * Faz o parse do XML de Sitemap com suporte a namespaces e regex fallback
      */
     public function parse_sitemap($url, $limit = 100, $depth = 0) {
-        if ($depth > 2) { // Evitar recursão infinita
+        if ($depth > 2 || $limit <= 0) {
             return [];
         }
 
         $response = wp_remote_get($url, [
-            'timeout'   => 10,
+            'timeout'   => 15,
             'sslverify' => false,
             'headers'   => [
-                'User-Agent' => 'HappyNginx Preloader',
+                'User-Agent' => 'HappyNginx Preloader/1.0',
             ]
         ]);
 
@@ -134,41 +145,100 @@ class Happy_Nginx_Preload {
             return [];
         }
 
-        libxml_use_internal_errors(true);
-        $xml = simplexml_load_string($xml_content);
-        if ($xml === false) {
-            libxml_clear_errors();
-            return [];
-        }
-
         $urls = [];
 
-        // Se for sitemap index (contém <sitemap>)
-        if (isset($xml->sitemap)) {
-            foreach ($xml->sitemap as $sitemap_item) {
-                if (isset($sitemap_item->loc)) {
-                    $sub_urls = $this->parse_sitemap((string)$sitemap_item->loc, $limit - count($urls), $depth + 1);
+        // Suporte a XML com namespaces e simplexml
+        libxml_use_internal_errors(true);
+        $xml = simplexml_load_string($xml_content);
+        if ($xml !== false) {
+            // Se possui namespaces (ex: sitemap padrão http://www.sitemaps.org/schemas/sitemap/0.9)
+            $namespaces = $xml->getNamespaces(true);
+            if (!empty($namespaces)) {
+                $ns_prefix = key($namespaces);
+                $xml->registerXPathNamespace('s', current($namespaces));
+
+                // 1. Verificar sitemap index
+                $sitemaps = $xml->xpath('//s:sitemap/s:loc');
+                if (!empty($sitemaps)) {
+                    foreach ($sitemaps as $loc) {
+                        $sub_url = trim((string)$loc);
+                        if (!empty($sub_url)) {
+                            $sub_urls = $this->parse_sitemap($sub_url, $limit - count($urls), $depth + 1);
+                            $urls = array_merge($urls, $sub_urls);
+                            if (count($urls) >= $limit) {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // 2. Verificar urlset
+                $url_nodes = $xml->xpath('//s:url/s:loc');
+                if (!empty($url_nodes)) {
+                    foreach ($url_nodes as $loc) {
+                        $urls[] = trim((string)$loc);
+                        if (count($urls) >= $limit) {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // XML sem namespace explícito
+                if (isset($xml->sitemap)) {
+                    foreach ($xml->sitemap as $sitemap_item) {
+                        if (isset($sitemap_item->loc)) {
+                            $sub_urls = $this->parse_sitemap((string)$sitemap_item->loc, $limit - count($urls), $depth + 1);
+                            $urls = array_merge($urls, $sub_urls);
+                            if (count($urls) >= $limit) {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (isset($xml->url)) {
+                    foreach ($xml->url as $url_item) {
+                        if (isset($url_item->loc)) {
+                            $urls[] = (string)$url_item->loc;
+                            if (count($urls) >= $limit) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            libxml_clear_errors();
+        }
+
+        // Fallback via Regex se o XML falhar no parser ou não retornar URLs
+        if (empty($urls)) {
+            // Se encontrar tags de sub-sitemaps
+            if (preg_match_all('/<sitemap\b[^>]*>.*?<loc>(.*?)<\/loc>.*?<\/sitemap>/is', $xml_content, $sub_matches)) {
+                foreach ($sub_matches[1] as $sub_url) {
+                    $sub_url = trim($sub_url);
+                    $sub_urls = $this->parse_sitemap($sub_url, $limit - count($urls), $depth + 1);
                     $urls = array_merge($urls, $sub_urls);
                     if (count($urls) >= $limit) {
                         break;
                     }
                 }
             }
-        }
 
-        // Se for urlset (contém <url>)
-        if (isset($xml->url)) {
-            foreach ($xml->url as $url_item) {
-                if (isset($url_item->loc)) {
-                    $urls[] = (string)$url_item->loc;
-                    if (count($urls) >= $limit) {
-                        break;
+            // Se encontrar tags <loc> de URLs
+            if (empty($urls) && preg_match_all('/<loc>\s*(https?:\/\/[^\s<]+)\s*<\/loc>/i', $xml_content, $matches)) {
+                foreach ($matches[1] as $matched_url) {
+                    // Ignora se terminar com .xml (que seria outro sitemap)
+                    if (!preg_match('/\.xml(\?.*)?$/i', $matched_url)) {
+                        $urls[] = trim($matched_url);
+                        if (count($urls) >= $limit) {
+                            break;
+                        }
                     }
                 }
             }
         }
 
-        return $urls;
+        return array_unique(array_filter($urls));
     }
 
     /**
@@ -183,19 +253,21 @@ class Happy_Nginx_Preload {
 
         foreach ($urls as $url) {
             $response = wp_remote_get($url, [
-                'timeout'    => 5,
+                'timeout'    => 10,
                 'sslverify'  => false,
-                'user-agent' => 'HappyNginx-Cache-Preloader/1.0',
-                // Sem enviar cookies de admin para que gere o cache público
+                'user-agent' => 'HappyNginx-Preloader/1.0',
+                'cookies'    => [], // Garante explicitamente que nenhuma sessão de admin seja enviada
                 'headers'    => [
                     'Accept-Encoding' => 'gzip, deflate',
+                    'Cache-Control'   => 'max-age=0',
                 ]
             ]);
 
             if (is_wp_error($response)) {
                 $failed++;
             } else {
-                $code = wp_remote_retrieve_response_code($response);
+                $code = (int) wp_remote_retrieve_response_code($response);
+                // Aceita códigos 2xx e 3xx (redirecionamentos como barra final /) como sucesso
                 if ($code >= 200 && $code < 400) {
                     $warmed++;
                 } else {
@@ -204,7 +276,7 @@ class Happy_Nginx_Preload {
             }
 
             // Pequeno intervalo para não sobrecarregar o servidor
-            usleep(100000); // 0.1 segundo
+            usleep(50000); // 0.05 segundo
         }
 
         $stats = [

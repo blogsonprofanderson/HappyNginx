@@ -20,10 +20,40 @@ class Happy_Nginx_Settings {
         $this->load();
     }
 
+    public static function detect_hestia_cache_path() {
+        $host = '';
+        if (function_exists('home_url')) {
+            $parsed = wp_parse_url(home_url());
+            $host = $parsed['host'] ?? '';
+        }
+        if (empty($host) && !empty($_SERVER['HTTP_HOST'])) {
+            $host = explode(':', $_SERVER['HTTP_HOST'])[0];
+        }
+
+        // Caminhos oficiais do HestiaCP
+        $candidates = [];
+        if (!empty($host)) {
+            $candidates[] = '/var/cache/nginx/micro/' . $host;
+            $candidates[] = '/var/cache/nginx/' . $host;
+        }
+        $candidates[] = '/var/cache/nginx/micro';
+        $candidates[] = '/var/run/nginx-cache';
+        $candidates[] = '/var/cache/nginx';
+
+        foreach ($candidates as $dir) {
+            if (is_dir($dir)) {
+                return $dir;
+            }
+        }
+
+        // Se nenhum existir fisicamente ainda, o padrão mais moderno do HestiaCP é /var/cache/nginx/micro/$domain
+        return !empty($host) ? '/var/cache/nginx/micro/' . $host : '/var/cache/nginx/micro';
+    }
+
     public static function get_default_options() {
         return [
             // Cache Nginx
-            'cache_path'               => '/var/run/nginx-cache', // Caminho padrão do HestiaCP FastCGI cache
+            'cache_path'               => self::detect_hestia_cache_path(),
             'smart_purge_enabled'      => 1,
             'purge_on_comment'         => 1,
             'purge_method'             => 'direct', // 'direct' ou 'http'

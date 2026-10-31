@@ -109,7 +109,7 @@ echo "=== INICIANDO TESTES DO HAPPYNGINX ===\n\n";
 echo "--- 1. Testando Happy_Nginx_Settings ---\n";
 Happy_Nginx_Settings::set_defaults();
 $settings = Happy_Nginx_Settings::get_instance();
-assert_test($settings->get('cache_path') === '/var/run/nginx-cache', 'Caminho padrão de cache correto para HestiaCP');
+assert_test(strpos($settings->get('cache_path'), '/var/cache/nginx') !== false || strpos($settings->get('cache_path'), '/var/run/nginx-cache') !== false, 'Caminho padrão de cache correto para HestiaCP');
 assert_test($settings->get('smart_purge_enabled') === 1, 'Smart Purge ativado por padrão');
 assert_test($settings->get('timestamp_enabled') === 1, 'Timestamp ativado por padrão');
 
